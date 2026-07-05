@@ -4,10 +4,19 @@
  * Handles chat UI interactions and booking actions.
  */
 
-const chatMessages = document.getElementById("chat-messages");
-const userInput = document.getElementById("user-input");
+const body = document.body;
+const messages = document.getElementById("messages");
+const messageStage = document.getElementById("messageStage");
+const boardForm = document.getElementById("boardForm");
+const boardInput = document.getElementById("boardInput");
+const boardSuggestions = document.getElementById("boardSuggestions");
+const chatForm = document.getElementById("chatForm");
+const chatInput = document.getElementById("chatInput");
 const sendButton = document.getElementById("send-button");
-const typingIndicator = document.getElementById("typing-indicator");
+const quickFollowups = document.getElementById("quickFollowups");
+const chatStatus = document.getElementById("chatStatus");
+const backBtn = document.getElementById("backBtn");
+const newTopicBtn = document.getElementById("newTopicBtn");
 
 const popularQuestions = [
 	"Where should I go for a relaxing beach trip?",
@@ -18,7 +27,7 @@ const popularQuestions = [
 
 const welcomeResponse = {
 	reply:
-		"Hi, I'm Travel Helper. Ask about a destination, itinerary, budget, dates, or travel style.",
+		"Tell me what kind of trip you want, and I'll help you narrow it down.",
 	intent: { hasDestinationIntent: false },
 	actions: [],
 };
@@ -26,36 +35,54 @@ const welcomeResponse = {
 let chatHistory = [{ role: "assistant", content: welcomeResponse.reply }];
 let isProcessing = false;
 let hasUserMessage = false;
+let loadingSlot = null;
 
 renderAssistantResponse(welcomeResponse, { showPopularQuestions: true });
 
-userInput.addEventListener("input", function () {
-	this.style.height = "auto";
-	this.style.height = `${this.scrollHeight}px`;
+boardForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	sendMessage(boardInput.value);
 });
 
-userInput.addEventListener("keydown", function (event) {
-	if (event.key === "Enter" && !event.shiftKey) {
+boardSuggestions.addEventListener("click", (event) => {
+	const button = event.target.closest("button[data-question]");
+	if (!button) return;
+	sendMessage(button.dataset.question);
+});
+
+chatForm.addEventListener("submit", (event) => {
+	event.preventDefault();
+	sendMessage(chatInput.value);
+});
+
+chatInput.addEventListener("keydown", (event) => {
+	if (event.key === "Enter") {
 		event.preventDefault();
-		sendMessage();
+		sendMessage(chatInput.value);
 	}
 });
 
-sendButton.addEventListener("click", () => sendMessage());
+backBtn.addEventListener("click", () => {
+	body.classList.remove("chat-open");
+	boardInput.focus();
+});
+
+newTopicBtn.addEventListener("click", resetChat);
 
 async function sendMessage(messageOverride) {
-	const message = (messageOverride ?? userInput.value).trim();
+	const message = (messageOverride ?? chatInput.value).trim();
 
 	if (message === "" || isProcessing) return;
 
+	openChatScreen();
 	setProcessingState(true);
 	clearLatestControls();
 	addMessageToChat("user", message);
 	chatHistory.push({ role: "user", content: message });
 	hasUserMessage = true;
 
-	userInput.value = "";
-	userInput.style.height = "auto";
+	boardInput.value = "";
+	chatInput.value = "";
 	showTyping(true);
 
 	try {
@@ -85,77 +112,79 @@ async function sendMessage(messageOverride) {
 			intent: { hasDestinationIntent: false },
 			actions: [],
 		};
-		renderAssistantResponse(fallback);
+		renderAssistantResponse(fallback, { notice: true });
 		chatHistory.push({ role: "assistant", content: fallback.reply });
 	} finally {
 		showTyping(false);
 		setProcessingState(false);
-		userInput.focus();
+		chatInput.focus();
 	}
 }
 
 function renderAssistantResponse(response, options = {}) {
+	if (loadingSlot) {
+		loadingSlot.remove();
+		loadingSlot = null;
+	}
+
 	const block = document.createElement("div");
 	block.className = "message-block assistant-block";
 
+	const answerSlot = document.createElement("div");
+	answerSlot.className = "answer-slot is-answering";
+
 	const messageEl = document.createElement("div");
-	messageEl.className = "message assistant-message";
+	messageEl.className = `bubble bot${options.notice ? " notice" : ""}`;
+	messageEl.textContent = response.reply;
+	answerSlot.appendChild(messageEl);
 
-	const textEl = document.createElement("p");
-	textEl.textContent = response.reply;
-	messageEl.appendChild(textEl);
-	block.appendChild(messageEl);
-
-	const controls = buildResponseControls(response, options);
-	if (controls) {
-		block.appendChild(controls);
+	const actions = buildActionButtons(response);
+	if (actions) {
+		answerSlot.appendChild(actions);
 	}
 
-	chatMessages.appendChild(block);
+	block.appendChild(answerSlot);
+	messages.appendChild(block);
+	renderQuickFollowups(options.showPopularQuestions && !hasUserMessage);
 	scrollToBottom();
 }
 
-function buildResponseControls(response, options = {}) {
-	const controls = document.createElement("div");
-	controls.className = "response-controls latest-controls";
-	let hasControls = false;
-
-	if (options.showPopularQuestions && !hasUserMessage) {
-		const popularButtons = document.createElement("div");
-		popularButtons.className = "controls-buttons popular-buttons";
-		for (const question of popularQuestions) {
-			const button = document.createElement("button");
-			button.type = "button";
-			button.className = "popular-question-button";
-			button.textContent = question;
-			button.addEventListener("click", () => sendMessage(question));
-			popularButtons.appendChild(button);
-		}
-		controls.appendChild(popularButtons);
-		hasControls = true;
-	}
-
+function buildActionButtons(response) {
 	const hasActions =
 		response.intent?.hasDestinationIntent === true &&
 		Array.isArray(response.actions) &&
 		response.actions.length > 0;
 
-	if (hasActions) {
-		const actionButtons = document.createElement("div");
-		actionButtons.className = "controls-buttons";
-		for (const action of response.actions) {
-			const button = document.createElement("button");
-			button.type = "button";
-			button.className = "action-button";
-			button.textContent = action.label;
-			button.addEventListener("click", () => openBookingAction(action.url));
-			actionButtons.appendChild(button);
-		}
-		controls.appendChild(actionButtons);
-		hasControls = true;
+	if (!hasActions) return null;
+
+	const actionButtons = document.createElement("div");
+	actionButtons.className = "action-bubbles latest-controls";
+	for (const action of response.actions) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = `action-bubble${action.id === "book_hotel" ? " hotel" : ""}`;
+		button.textContent = action.label;
+		button.addEventListener("click", () => openBookingAction(action.url));
+		actionButtons.appendChild(button);
 	}
 
-	return hasControls ? controls : null;
+	return actionButtons;
+}
+
+function renderQuickFollowups(showPopularQuestions = false) {
+	quickFollowups.replaceChildren();
+	if (!showPopularQuestions) return;
+
+	const fragment = document.createDocumentFragment();
+	for (const question of popularQuestions) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "popular-question-button latest-controls";
+		button.textContent = question;
+		button.addEventListener("click", () => sendMessage(question));
+		fragment.appendChild(button);
+	}
+	quickFollowups.appendChild(fragment);
 }
 
 function openBookingAction(url) {
@@ -167,13 +196,13 @@ function addMessageToChat(role, content) {
 	block.className = `message-block ${role}-block`;
 
 	const messageEl = document.createElement("div");
-	messageEl.className = `message ${role}-message`;
+	messageEl.className = `bubble ${role === "user" ? "user" : "bot"}`;
+	messageEl.textContent = content;
 
-	const textEl = document.createElement("p");
-	textEl.textContent = content;
-	messageEl.appendChild(textEl);
 	block.appendChild(messageEl);
-	chatMessages.appendChild(block);
+	messages.appendChild(block);
+	messages.classList.remove("is-ready");
+	requestAnimationFrame(() => messages.classList.add("is-ready"));
 	scrollToBottom();
 }
 
@@ -235,10 +264,10 @@ function isAllowedBookingUrl(url) {
 }
 
 function clearLatestControls() {
-	const controls = chatMessages.querySelectorAll(".latest-controls");
+	const controls = document.querySelectorAll(".latest-controls");
 	for (const control of controls) {
 		control.classList.remove("latest-controls");
-		const buttons = control.querySelectorAll("button");
+		const buttons = control.matches("button") ? [control] : control.querySelectorAll("button");
 		for (const button of buttons) {
 			button.disabled = true;
 		}
@@ -247,18 +276,59 @@ function clearLatestControls() {
 
 function setProcessingState(processing) {
 	isProcessing = processing;
-	userInput.disabled = processing;
+	boardInput.disabled = processing;
+	chatInput.disabled = processing;
 	sendButton.disabled = processing;
-	const buttons = chatMessages.querySelectorAll("button");
+	newTopicBtn.disabled = processing;
+	boardForm.querySelector("button").disabled = processing;
+	chatStatus.textContent = processing ? "Planning" : "Ready";
+
+	const buttons = document.querySelectorAll("button");
 	for (const button of buttons) {
-		button.disabled = processing || !button.closest(".latest-controls");
+		if (button === backBtn || button === newTopicBtn) continue;
+		if (button.closest("form")) continue;
+		button.disabled = processing || !button.closest(".latest-controls") && button.classList.contains("action-bubble");
 	}
 }
 
 function showTyping(visible) {
-	typingIndicator.classList.toggle("visible", visible);
+	if (visible) {
+		loadingSlot = document.createElement("div");
+		loadingSlot.className = "answer-slot is-loading";
+		loadingSlot.innerHTML = `
+			<div class="loading-card">
+				<div class="dots"><span></span><span></span><span></span></div>
+				Planning your answer...
+			</div>
+		`;
+		messages.appendChild(loadingSlot);
+		scrollToBottom();
+		return;
+	}
+
+	if (loadingSlot) {
+		loadingSlot.remove();
+		loadingSlot = null;
+	}
+}
+
+function openChatScreen() {
+	body.classList.add("chat-open");
+}
+
+function resetChat() {
+	chatHistory = [{ role: "assistant", content: welcomeResponse.reply }];
+	isProcessing = false;
+	hasUserMessage = false;
+	loadingSlot = null;
+	boardInput.value = "";
+	chatInput.value = "";
+	messages.replaceChildren();
+	renderAssistantResponse(welcomeResponse, { showPopularQuestions: true });
+	setProcessingState(false);
+	chatInput.focus();
 }
 
 function scrollToBottom() {
-	chatMessages.scrollTop = chatMessages.scrollHeight;
+	messageStage.scrollTop = messageStage.scrollHeight;
 }
