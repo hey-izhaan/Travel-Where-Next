@@ -107,7 +107,6 @@
         border-radius: 999px;
         padding: 10px;
       }
-      .travel_input,
       .travel_input {
         flex: 1;
         min-width: 0;
@@ -458,39 +457,44 @@
   </head>
 
   <body>
-    <main class="travel_wrap">
-      <div class="travel_contain">
+    <main class="travel_wrap" data-travel="component">
+      <div class="travel_contain" data-travel="contain">
         <section class="travel_question_board">
           <div><h1>Ask one question. Get your next destination.</h1></div>
           <div class="travel_board_bottom">
             <div>
               <div class="travel_suggestion_label">I want to</div>
-              <div class="travel_suggestion_list">
+              <div class="travel_suggestion_list" data-travel="suggestions">
                 <button
+                  data-travel-disable-during-request
                   data-question="I want to find a warm beach trip"
                   type="button"
                 >
                   find a warm beach trip
                 </button>
                 <button
+                  data-travel-disable-during-request
                   data-question="I want to plan a budget-friendly week"
                   type="button"
                 >
                   plan a budget-friendly week
                 </button>
                 <button
+                  data-travel-disable-during-request
                   data-question="I want to go somewhere peaceful"
                   type="button"
                 >
                   go somewhere peaceful
                 </button>
                 <button
+                  data-travel-disable-during-request
                   data-question="I want to pick a food-focused city"
                   type="button"
                 >
                   pick a food-focused city
                 </button>
                 <button
+                  data-travel-disable-during-request
                   data-question="I want to compare a few destinations"
                   type="button"
                 >
@@ -498,13 +502,14 @@
                 </button>
               </div>
             </div>
-            <form class="travel_form_wrap is-board">
+            <form class="travel_form_wrap is-board" data-travel="board-form">
               <input
                 class="travel_input is-board"
+                data-travel="board-input"
                 type="text"
                 placeholder="Ask: I want a warm beach trip..."
               />
-              <button type="submit">Ask</button>
+              <button data-travel="board-submit" type="submit">Ask</button>
             </form>
           </div>
         </section>
@@ -527,39 +532,40 @@
                 <div class="travel_chat_avatar">AI</div>
                 <div>
                   Travel Matcher
-                  <div class="travel_status_text">Ready</div>
+                  <div class="travel_status_text" data-travel="status">Ready</div>
                 </div>
               </div>
-              <button class="travel_topic_button" type="button">
+              <button class="travel_topic_button" data-travel="new-topic" type="button">
                 New topic
               </button>
             </div>
-            <div class="travel_message_stage_wrap">
-              <div class="travel_message_set_wrap"></div>
+            <div class="travel_message_stage_wrap" data-travel="message-stage">
+              <div class="travel_message_set_wrap" data-travel="messages"></div>
             </div>
-            <form class="travel_form_wrap is-chat">
+            <form class="travel_form_wrap is-chat" data-travel="chat-form">
               <input
                 class="travel_input is-chat"
+                data-travel="chat-input"
                 type="text"
                 placeholder="Ask a follow-up..."
               />
-              <button class="travel_submit_button is-chat" type="submit">Ask</button>
+              <button class="travel_submit_button is-chat" data-travel="chat-submit" type="submit">Ask</button>
             </form>
           </section>
         </section>
-        <div class="travel_hidden" aria-hidden="true">
-          <div class="travel_question_wrap">
-            <div class="travel_message is-user"></div>
+        <div class="travel_hidden" data-travel="templates" aria-hidden="true">
+          <div class="travel_question_wrap" data-travel="question-template">
+            <div class="travel_message is-user" data-travel="message"></div>
           </div>
-          <div class="travel_answer_wrap">
-            <div class="travel_message is-bot is-answer"></div>
+          <div class="travel_answer_wrap" data-travel="answer-template">
+            <div class="travel_message is-bot is-answer" data-travel="message"></div>
           </div>
-          <div class="travel_loading_wrap">
+          <div class="travel_loading_wrap" data-travel="loading-template">
             <div class="dots"><span></span><span></span><span></span></div>
             Planning your answer...
           </div>
-          <div class="travel_action_list_wrap"></div>
-          <button class="travel_action_button" type="button"></button>
+          <div class="travel_action_list_wrap" data-travel="action-list-template"></div>
+          <button class="travel_action_button" data-travel="action-button-template" type="button"></button>
         </div>
       </div>
     </main>

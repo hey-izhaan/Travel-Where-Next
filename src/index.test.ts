@@ -303,9 +303,12 @@ describe("travel chat API", () => {
 		const html = readFileSync("public/index.html", "utf8");
 
 		expect(html).toContain("Travel Helper");
-		expect(html).toContain("travel_question_wrap");
-		expect(html).toContain("travel_answer_wrap");
-		expect(html).toContain("travel_message is-bot is-answer");
+		expect(html).toContain('data-travel="question-template"');
+		expect(html).toContain('data-travel="answer-template"');
+		expect(html).toContain('data-travel="message"');
+		expect(chatScript).toContain('data-travel="component"');
+		expect(chatScript).toContain('data-travel="board-submit"');
+		expect(chatScript).not.toContain('.travel_wrap');
 		expect(chatScript).toContain("prefers-reduced-motion");
 		expect(chatScript).toContain("activeQuestionSlot");
 		expect(chatScript).toContain("activeAnswerSlot");

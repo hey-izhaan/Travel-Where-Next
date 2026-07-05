@@ -10,54 +10,57 @@ https://where-next-dev.webflow.io
 
 The Cloudflare Worker allows this origin for `POST /api/chat` and `OPTIONS` preflight requests.
 
-## Required Webflow Structure
+## Required Webflow Attributes
 
-Create one wrapper element with class `travel_wrap`. Inside it, add one child with class `travel_contain`. The JavaScript initializes every `.travel_wrap` that contains `.travel_contain`.
+Use `data-travel` attributes as JavaScript hooks. Classes can stay focused on Webflow styling.
 
-Use these exact classes for interactive elements:
+Create one wrapper element with `data-travel="component"`. Inside it, add one child with `data-travel="contain"`. The JavaScript initializes every component wrapper that contains a matching contain element.
 
-| Class | Element type | Purpose |
+Use these exact attributes for interactive elements:
+
+| Attribute | Element type | Purpose |
 | --- | --- | --- |
-| `travel_message_set_wrap` | Div | Holds the current question/answer pair. |
-| `travel_message_stage_wrap` | Div | Scroll container around `travel_message_set_wrap`. |
-| `travel_form_wrap is-board` | Form | First-screen question form. |
-| `travel_input is-board` | Text input | First-screen question input. |
-| `travel_suggestion_list` | Div | Holds starter buttons. |
-| `travel_form_wrap is-chat` | Form | Follow-up chat form. |
-| `travel_input is-chat` | Text input | Follow-up input. |
-| `travel_submit_button is-chat` | Button | Follow-up submit button. |
-| `travel_status_text` | Text element | Shows `Ready` or `Planning`. |
-| `travel_topic_button` | Button | Resets the chat. |
-| `travel_hidden` | Div | Hidden template container. |
+| `data-travel="messages"` | Div | Holds the current question/answer pair. |
+| `data-travel="message-stage"` | Div | Scroll container around the messages element. |
+| `data-travel="board-form"` | Form | First-screen question form. |
+| `data-travel="board-input"` | Text input | First-screen question input. |
+| `data-travel="board-submit"` | Button | First-screen submit button. |
+| `data-travel="suggestions"` | Div | Holds starter buttons. |
+| `data-travel="chat-form"` | Form | Follow-up chat form. |
+| `data-travel="chat-input"` | Text input | Follow-up input. |
+| `data-travel="chat-submit"` | Button | Follow-up submit button. |
+| `data-travel="status"` | Text element | Shows `Ready` or `Planning`. |
+| `data-travel="new-topic"` | Button | Resets the chat. |
+| `data-travel="templates"` | Div | Hidden template container. |
 
-Starter buttons inside `travel_suggestion_list` need a `data-question` attribute, for example:
+Starter buttons inside `data-travel="suggestions"` need a `data-question` attribute. Add `data-travel-disable-during-request` if the button should be disabled while a response is loading. For example:
 
 ```html
-<button data-question="I want to find a warm beach trip" type="button">find a warm beach trip</button>
+<button data-travel-disable-during-request data-question="I want to find a warm beach trip" type="button">find a warm beach trip</button>
 ```
 
 ## Required Hidden Templates
 
-Add these elements inside `.travel_hidden`:
+Add these elements inside `data-travel="templates"`:
 
 ```html
-<div class="travel_question_wrap">
-  <div class="travel_message is-user"></div>
+<div class="travel_question_wrap" data-travel="question-template">
+  <div class="travel_message is-user" data-travel="message"></div>
 </div>
-<div class="travel_answer_wrap">
-  <div class="travel_message is-bot is-answer"></div>
+<div class="travel_answer_wrap" data-travel="answer-template">
+  <div class="travel_message is-bot is-answer" data-travel="message"></div>
 </div>
-<div class="travel_loading_wrap">
+<div class="travel_loading_wrap" data-travel="loading-template">
   <div class="dots"><span></span><span></span><span></span></div>
   Planning your answer...
 </div>
-<div class="travel_action_list_wrap"></div>
-<button class="travel_action_button" type="button"></button>
+<div class="travel_action_list_wrap" data-travel="action-list-template"></div>
+<button class="travel_action_button" data-travel="action-button-template" type="button"></button>
 ```
 
 ## JavaScript-Controlled Classes
 
-The JavaScript creates or toggles these classes, so style them in Webflow or custom CSS:
+The JavaScript still creates or toggles these classes for styling and animation:
 
 ```text
 is-active

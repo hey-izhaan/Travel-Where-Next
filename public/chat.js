@@ -5,27 +5,28 @@
  */
 
 document.addEventListener("DOMContentLoaded", function () {
-	document.querySelectorAll(".travel_wrap").forEach((component) => {
-		if (!component.querySelector(".travel_contain")) return;
+	document.querySelectorAll('[data-travel="component"]').forEach((component) => {
+		if (!component.querySelector('[data-travel="contain"]')) return;
 		if (component.dataset.scriptInitialized) return;
 		component.dataset.scriptInitialized = "true";
 
-		const messages = component.querySelector(".travel_message_set_wrap");
-		const messageStage = component.querySelector(".travel_message_stage_wrap");
-		const boardForm = component.querySelector(".travel_form_wrap.is-board");
-		const boardInput = component.querySelector(".travel_input.is-board");
-		const boardSuggestions = component.querySelector(".travel_suggestion_list");
-		const chatForm = component.querySelector(".travel_form_wrap.is-chat");
-		const chatInput = component.querySelector(".travel_input.is-chat");
-		const sendButton = component.querySelector(".travel_submit_button.is-chat");
-		const chatStatus = component.querySelector(".travel_status_text");
-		const newTopicBtn = component.querySelector(".travel_topic_button");
-		const hidden = component.querySelector(".travel_hidden");
-		const questionTemplate = hidden.querySelector(".travel_question_wrap");
-		const answerTemplate = hidden.querySelector(".travel_answer_wrap");
-		const loadingTemplate = hidden.querySelector(".travel_loading_wrap");
-		const actionListTemplate = hidden.querySelector(".travel_action_list_wrap");
-		const actionButtonTemplate = hidden.querySelector(".travel_action_button");
+		const messages = component.querySelector('[data-travel="messages"]');
+		const messageStage = component.querySelector('[data-travel="message-stage"]');
+		const boardForm = component.querySelector('[data-travel="board-form"]');
+		const boardInput = component.querySelector('[data-travel="board-input"]');
+		const boardSubmit = component.querySelector('[data-travel="board-submit"]');
+		const boardSuggestions = component.querySelector('[data-travel="suggestions"]');
+		const chatForm = component.querySelector('[data-travel="chat-form"]');
+		const chatInput = component.querySelector('[data-travel="chat-input"]');
+		const sendButton = component.querySelector('[data-travel="chat-submit"]');
+		const chatStatus = component.querySelector('[data-travel="status"]');
+		const newTopicBtn = component.querySelector('[data-travel="new-topic"]');
+		const hidden = component.querySelector('[data-travel="templates"]');
+		const questionTemplate = hidden.querySelector('[data-travel="question-template"]');
+		const answerTemplate = hidden.querySelector('[data-travel="answer-template"]');
+		const loadingTemplate = hidden.querySelector('[data-travel="loading-template"]');
+		const actionListTemplate = hidden.querySelector('[data-travel="action-list-template"]');
+		const actionButtonTemplate = hidden.querySelector('[data-travel="action-button-template"]');
 		const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 		const chatApiUrl = window.TRAVEL_HELPER_API_URL ?? "/api/chat";
 
@@ -53,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function () {
 		});
 
 		boardSuggestions.addEventListener("click", (event) => {
-			const button = event.target.closest("button[data-question]");
+			const button = event.target.closest("[data-question]");
 			if (!button) return;
 			sendMessage(button.dataset.question);
 		});
@@ -127,7 +128,7 @@ document.addEventListener("DOMContentLoaded", function () {
 			const questionSlot = questionTemplate.cloneNode(true);
 			questionSlot.className = "travel_question_wrap is-entering";
 
-			const messageEl = questionSlot.querySelector(".travel_message");
+			const messageEl = questionSlot.querySelector('[data-travel="message"]');
 			messageEl.className = "travel_message is-user";
 			messageEl.textContent = content;
 
@@ -157,7 +158,7 @@ document.addEventListener("DOMContentLoaded", function () {
 				? "travel_answer_wrap"
 				: "travel_answer_wrap is-entering is-answering";
 
-			const messageEl = answerSlot.querySelector(".travel_message");
+			const messageEl = answerSlot.querySelector('[data-travel="message"]');
 			messageEl.className = options.notice
 				? "travel_message is-bot is-answer is-notice"
 				: "travel_message is-bot is-answer";
@@ -276,6 +277,8 @@ document.addEventListener("DOMContentLoaded", function () {
 					action.id === "book_hotel"
 						? "travel_action_button is-hotel"
 						: "travel_action_button";
+				button.dataset.travel = "action-button";
+				button.dataset.travelDisableDuringRequest = "true";
 				button.textContent = action.label;
 				button.addEventListener("click", () => openBookingAction(action.url));
 				actionButtons.appendChild(button);
@@ -366,13 +369,12 @@ document.addEventListener("DOMContentLoaded", function () {
 			chatInput.disabled = processing;
 			sendButton.disabled = processing;
 			newTopicBtn.disabled = processing;
-			boardForm.querySelector("button").disabled = processing;
+			boardSubmit.disabled = processing;
 			chatStatus.textContent = processing ? "Planning" : "Ready";
 
-			const buttons = component.querySelectorAll("button");
+			const buttons = component.querySelectorAll("[data-travel-disable-during-request]");
 			for (const button of buttons) {
 				if (button === newTopicBtn) continue;
-				if (button.closest("form")) continue;
 				button.disabled = processing;
 			}
 		}
