@@ -3,17 +3,19 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>LLM Chat App</title>
+		<title>Travel Helper</title>
 		<style>
 			:root {
-				--primary-color: #f6821f;
-				--primary-hover: #e67e22;
-				--light-bg: #f9fafb;
-				--border-color: #e5e7eb;
-				--text-color: #1f2937;
-				--text-light: #6b7280;
-				--user-msg-bg: #fff2e6;
-				--assistant-msg-bg: #f3f4f6;
+				--primary-color: #0f766e;
+				--primary-hover: #115e59;
+				--accent-color: #c2410c;
+				--surface: #ffffff;
+				--light-bg: #f8fafc;
+				--border-color: #d7dee8;
+				--text-color: #172033;
+				--text-light: #64748b;
+				--user-msg-bg: #e0f2fe;
+				--assistant-msg-bg: #eef2ff;
 			}
 
 			* {
@@ -28,31 +30,36 @@
 					Cantarell, sans-serif;
 				line-height: 1.6;
 				color: var(--text-color);
-				max-width: 800px;
+				background: var(--light-bg);
+				max-width: 920px;
 				margin: 0 auto;
 				padding: 1rem;
 			}
 
 			header {
-				text-align: center;
-				margin-bottom: 2rem;
+				margin-bottom: 1rem;
 				padding: 1rem 0;
 				border-bottom: 1px solid var(--border-color);
 			}
 
 			h1 {
-				font-size: 1.5rem;
+				font-size: 1.6rem;
 				color: var(--primary-color);
+			}
+
+			header p {
+				color: var(--text-light);
 			}
 
 			.chat-container {
 				display: flex;
 				flex-direction: column;
-				height: calc(100vh - 200px);
-				min-height: 400px;
+				height: calc(100vh - 160px);
+				min-height: 480px;
 				border: 1px solid var(--border-color);
 				border-radius: 8px;
 				overflow: hidden;
+				background-color: var(--surface);
 			}
 
 			.chat-messages {
@@ -62,11 +69,15 @@
 				background-color: var(--light-bg);
 			}
 
-			.message {
+			.message-block {
 				margin-bottom: 1rem;
-				padding: 0.75rem;
+			}
+
+			.message {
+				padding: 0.85rem;
 				border-radius: 8px;
-				max-width: 80%;
+				max-width: 82%;
+				box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 			}
 
 			.message p {
@@ -77,39 +88,75 @@
 
 			.user-message {
 				background-color: var(--user-msg-bg);
-				align-self: flex-end;
 				margin-left: auto;
 			}
 
 			.assistant-message {
 				background-color: var(--assistant-msg-bg);
-				align-self: flex-start;
+			}
+
+			.response-controls {
+				max-width: 82%;
+				margin-top: 0.65rem;
+			}
+
+			.controls-buttons {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.5rem;
+			}
+
+			.popular-question-button,
+			.action-button {
+				border: 1px solid rgba(194, 65, 12, 0.35);
+				border-radius: 999px;
+				background: var(--surface);
+				color: var(--accent-color);
+				cursor: pointer;
+				font: inherit;
+				font-size: 0.92rem;
+				line-height: 1.25;
+				padding: 0.45rem 0.7rem;
+				transition:
+					background-color 0.2s,
+					border-color 0.2s,
+					color 0.2s;
+			}
+
+			.popular-question-button:hover,
+			.popular-question-button:focus-visible,
+			.action-button:hover,
+			.action-button:focus-visible {
+				background: #fff7ed;
+				border-color: var(--accent-color);
 			}
 
 			.message-input {
 				display: flex;
 				padding: 0.75rem;
 				border-top: 1px solid var(--border-color);
-				background-color: white;
+				background-color: var(--surface);
 			}
 
 			#user-input {
 				flex: 1;
 				padding: 0.75rem;
 				border: 1px solid var(--border-color);
-				border-radius: 4px;
+				border-radius: 6px;
 				font-family: inherit;
 				resize: none;
-				min-height: 44px;
+				min-height: 46px;
+				max-height: 150px;
 			}
 
 			#send-button {
 				margin-left: 0.5rem;
 				padding: 0 1rem;
+				min-width: 72px;
 				background-color: var(--primary-color);
 				color: white;
 				border: none;
-				border-radius: 4px;
+				border-radius: 6px;
 				cursor: pointer;
 				transition: background-color 0.2s;
 			}
@@ -118,8 +165,10 @@
 				background-color: var(--primary-hover);
 			}
 
-			#send-button:disabled {
-				background-color: var(--text-light);
+			#send-button:disabled,
+			.popular-question-button:disabled,
+			.action-button:disabled {
+				opacity: 0.55;
 				cursor: not-allowed;
 			}
 
@@ -127,57 +176,65 @@
 				display: none;
 				font-style: italic;
 				color: var(--text-light);
-				padding: 1rem;
+				padding: 0.75rem 1rem;
+				border-top: 1px solid var(--border-color);
 			}
 
 			.typing-indicator.visible {
 				display: block;
 			}
 
-			footer {
-				margin-top: 1rem;
-				text-align: center;
-				font-size: 0.85rem;
-				color: var(--text-light);
+			@media (max-width: 640px) {
+				body {
+					padding: 0.75rem;
+				}
+
+				.chat-container {
+					height: calc(100vh - 140px);
+					min-height: 420px;
+				}
+
+				.message,
+				.response-controls {
+					max-width: 100%;
+				}
+
+				.message-input {
+					gap: 0.5rem;
+					flex-direction: column;
+				}
+
+				#send-button {
+					margin-left: 0;
+					min-height: 44px;
+				}
 			}
 		</style>
 	</head>
 	<body>
 		<header>
-			<h1>Cloudflare AI Chat</h1>
-			<p>Powered by Cloudflare Workers AI</p>
+			<h1>Travel Helper</h1>
+			<p>Practical destination, itinerary, budget, and booking guidance.</p>
 		</header>
 
-		<div class="chat-container">
-			<div id="chat-messages" class="chat-messages">
-				<div class="message assistant-message">
-					<p>
-						Hello! I'm an LLM chat app powered by Cloudflare Workers AI. How can
-						I help you today?
-					</p>
-				</div>
-			</div>
+		<main class="chat-container" aria-label="Travel Helper chat">
+			<div id="chat-messages" class="chat-messages"></div>
 
 			<div class="typing-indicator" id="typing-indicator">
-				AI is thinking...
+				Planning your answer...
 			</div>
 
 			<div class="message-input">
 				<textarea
 					id="user-input"
-					placeholder="Type your message here..."
+					placeholder="Ask about a destination, itinerary, budget, or travel style..."
 					rows="1"
 					autofocus
 				></textarea>
 				<button id="send-button">Send</button>
 			</div>
-		</div>
+		</main>
 
-		<footer>
-			<p>Cloudflare Workers AI Chat Template &copy; 2025</p>
-		</footer>
-
-		<!-- Chat app script -->
 		<script src="chat.js"></script>
 	</body>
 </html>
