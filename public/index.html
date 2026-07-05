@@ -57,7 +57,6 @@
 			}
 			.assistant-side h2 { position: relative; z-index: 1; margin: 40px 0 0; font-size: clamp(42px, 5vw, 82px); line-height: 0.88; letter-spacing: -0.07em; }
 			.side-hint { position: relative; z-index: 1; margin-top: 22px; opacity: 0.62; line-height: 1.5; font-weight: 700; max-width: 390px; }
-			.back-btn { position: relative; z-index: 1; width: fit-content; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.08); color: #fff; border-radius: 999px; padding: 12px 16px; font-weight: 900; cursor: pointer; }
 			.chat-panel { background: #fff; border-radius: 44px; padding: 26px; display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08); min-height: 620px; }
 			.chat-top { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding-bottom: 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.08); }
 			.chat-title { display: flex; align-items: center; gap: 12px; font-weight: 900; }
@@ -65,28 +64,29 @@
 			.chat-status { font-size: 13px; opacity: 0.55; font-weight: 800; margin-top: 2px; }
 			.new-topic { border: 0; background: #f2f2f2; border-radius: 999px; padding: 12px 16px; font-weight: 900; cursor: pointer; }
 			.message-stage { flex: 1; display: grid; place-items: center; padding: 36px 0; min-height: 380px; overflow-y: auto; }
-			.message-set { width: min(680px, 100%); display: grid; gap: 14px; }
-			.message-set.is-ready { animation: messageIn 0.35s ease both; }
-			.message-block { display: contents; }
+			.message-set { width: min(680px, 100%); min-height: 320px; display: grid; align-content: center; gap: 18px; }
+			.question-slot { min-height: 56px; display: grid; justify-items: end; align-content: end; }
+			.answer-slot { min-height: 132px; justify-self: stretch; display: grid; justify-items: start; align-content: start; gap: 14px; }
+			.question-slot.is-entering, .answer-slot.is-entering { animation: slotEnter 0.24s ease-out both; }
+			.question-slot.is-exiting, .answer-slot.is-exiting { animation: slotExit 0.2s ease-in both; pointer-events: none; }
+			.answer-slot.is-loading { animation: slotEnter 0.22s ease-out both; }
+			.answer-slot.is-answering { animation: answerIn 0.28s ease both; }
 			.bubble { width: fit-content; max-width: 84%; padding: 16px 20px; border-radius: 24px; font-size: 17px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
-			.bubble.user { justify-self: end; background: #151515; color: #fff; border-bottom-right-radius: 6px; }
-			.bubble.bot { justify-self: start; background: #f2f2f2; color: #151515; border-bottom-left-radius: 6px; }
-			.bubble.notice { background: #fff4e8; border: 1px solid #ffd7ad; }
-			.answer-slot { justify-self: stretch; display: grid; gap: 14px; }
-			.answer-slot.is-loading { animation: answerIn 0.28s ease both; }
-			.answer-slot.is-answering { animation: answerIn 0.35s ease both; }
+			.bubble.user { justify-self: end; background: #151515; color: #fff; border-bottom-right-radius: 6px; font-size: 16px; font-weight: 750; }
+			.bubble.bot { justify-self: start; background: #f4f5f1; color: #151515; border-bottom-left-radius: 6px; }
+			.bubble.answer-bubble { max-width: 92%; font-size: 21px; font-weight: 780; line-height: 1.52; }
+			.bubble.notice, .bubble.error { background: #fff4e8; border: 1px solid #ffd7ad; color: #3f2714; }
 			.loading-card { justify-self: start; background: #f2f2f2; border-radius: 24px; border-bottom-left-radius: 6px; padding: 16px 18px; display: flex; align-items: center; gap: 12px; font-weight: 800; color: rgba(21, 21, 21, 0.72); }
 			.dots { display: flex; gap: 4px; }
 			.dots span { width: 7px; height: 7px; border-radius: 50%; background: #151515; opacity: 0.35; animation: dotPulse 0.9s infinite ease-in-out; }
 			.dots span:nth-child(2) { animation-delay: 0.15s; }
 			.dots span:nth-child(3) { animation-delay: 0.3s; }
-			.quick-followups { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 18px; }
-			.quick-followups button { border: 0; background: #f2f2f2; border-radius: 999px; padding: 11px 14px; font-weight: 800; cursor: pointer; }
 			.action-bubbles { display: flex; flex-wrap: wrap; gap: 10px; justify-self: start; }
 			.action-bubble { border: 0; border-radius: 999px; background: #151515; color: #fff; padding: 12px 15px; text-align: center; text-decoration: none; font-size: 13px; font-weight: 900; cursor: pointer; line-height: 1.1; }
 			.action-bubble.hotel { background: #ff5edb; }
 			.action-bubble:hover, .action-bubble:focus-visible { transform: translateY(-1px); outline: 0; }
-			@keyframes messageIn { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+			@keyframes slotEnter { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+			@keyframes slotExit { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-18px) scale(0.98); } }
 			@keyframes answerIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 			@keyframes dotPulse { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 0.85; transform: translateY(-3px); } }
 			@media (max-width: 980px) {
@@ -101,7 +101,16 @@
 				.question-board, .assistant-side, .chat-panel { border-radius: 28px; padding: 24px; }
 				.board-input, .chat-input { border-radius: 24px; }
 				.bubble { max-width: 92%; }
+				.bubble.answer-bubble { font-size: 19px; }
 				.chat-top { align-items: flex-start; flex-direction: column; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				*, *::before, *::after {
+					animation-duration: 0.01ms !important;
+					animation-iteration-count: 1 !important;
+					scroll-behavior: auto !important;
+					transition-duration: 0.01ms !important;
+				}
 			}
 		</style>
 	</head>
@@ -135,7 +144,6 @@
 							<h2>Let's match your travel vibe.</h2>
 							<p class="side-hint">I only answer travel destination questions: budget, weather, beaches, food, family trips, remote work, peaceful escapes, and trip length.</p>
 						</div>
-						<button class="back-btn" id="backBtn" type="button">Back to questions</button>
 					</aside>
 
 					<section class="chat-panel" aria-label="Travel Helper chat">
@@ -147,7 +155,6 @@
 							<button class="new-topic" id="newTopicBtn" type="button">New topic</button>
 						</div>
 						<div class="message-stage" id="messageStage"><div class="message-set" id="messages"></div></div>
-						<div class="quick-followups" id="quickFollowups"></div>
 						<form class="chat-input" id="chatForm">
 							<input id="chatInput" type="text" placeholder="Ask a follow-up..." />
 							<button id="send-button" type="submit">Ask</button>

@@ -19,6 +19,8 @@ const MODEL_ID = "@cf/meta/llama-3.1-8b-instruct-fp8";
 const SYSTEM_PROMPT = `You are Travel Helper.
 Answer travel questions clearly and practically.
 If the user asks something unrelated to travel, politely say you only help with travel planning.
+Set hasDestinationIntent to true only when the user has chosen one specific destination.
+For comparisons, recommendations, or multiple destination lists, set hasDestinationIntent to false and leave destination empty.
 Return only JSON:
 {"reply":"answer for the user","intent":{"hasDestinationIntent":false,"destination":""}}`;
 
@@ -170,10 +172,13 @@ function validateIntent(value: unknown): TravelIntent {
 		return { hasDestinationIntent: false };
 	}
 
-	const destination =
+	const rawDestination =
 		typeof value.destination === "string" && value.destination.trim().length > 0
 			? value.destination.trim()
 			: undefined;
+	const destination = rawDestination
+		? normalizeSingleDestination(rawDestination)
+		: undefined;
 	const hasDestinationIntent =
 		value.hasDestinationIntent === true && Boolean(destination);
 
@@ -181,6 +186,27 @@ function validateIntent(value: unknown): TravelIntent {
 		hasDestinationIntent,
 		...(hasDestinationIntent && destination ? { destination } : {}),
 	};
+}
+
+function normalizeSingleDestination(destination: string): string | undefined {
+	const normalized = destination.replace(/\s+/g, " ").trim();
+	if (!normalized) return undefined;
+	if (looksLikeMissingDestination(normalized)) return undefined;
+	if (looksLikeMultipleDestinations(normalized)) return undefined;
+
+	return normalized;
+}
+
+function looksLikeMissingDestination(destination: string): boolean {
+	return /^(?:n\/a|none|null|undefined|unknown|empty|destination|this destination)$/i.test(destination);
+}
+
+function looksLikeMultipleDestinations(destination: string): boolean {
+	return (
+		/[,;\n\r/]/.test(destination) ||
+		/\s(?:or|and)\s/i.test(destination) ||
+		/^\s*(?:\d+\.|[-*])\s/m.test(destination)
+	);
 }
 
 function createDestinationActions(destination = "this destination"): TravelAction[] {
@@ -227,3 +253,4 @@ function jsonResponse(body: unknown, status = 200): Response {
 		},
 	});
 }
+

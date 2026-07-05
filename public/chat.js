@@ -1,7 +1,7 @@
 /**
  * Travel Helper Frontend
  *
- * Handles chat UI interactions and booking actions.
+ * Handles chat UI interactions, single-pair message motion, and booking actions.
  */
 
 const body = document.body;
@@ -13,17 +13,9 @@ const boardSuggestions = document.getElementById("boardSuggestions");
 const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
 const sendButton = document.getElementById("send-button");
-const quickFollowups = document.getElementById("quickFollowups");
 const chatStatus = document.getElementById("chatStatus");
-const backBtn = document.getElementById("backBtn");
 const newTopicBtn = document.getElementById("newTopicBtn");
-
-const popularQuestions = [
-	"Where should I go for a relaxing beach trip?",
-	"Plan a budget-friendly city break",
-	"Help me compare Japan and Italy",
-	"Suggest winter vacation ideas",
-];
+const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const welcomeResponse = {
 	reply:
@@ -34,10 +26,14 @@ const welcomeResponse = {
 
 let chatHistory = [{ role: "assistant", content: welcomeResponse.reply }];
 let isProcessing = false;
-let hasUserMessage = false;
+let activeQuestionSlot = null;
+let activeAnswerSlot = null;
 let loadingSlot = null;
+let revealGeneration = 0;
 
-renderAssistantResponse(welcomeResponse, { showPopularQuestions: true });
+renderAssistantResponse(welcomeResponse, {
+	immediate: true,
+});
 
 boardForm.addEventListener("submit", (event) => {
 	event.preventDefault();
@@ -62,11 +58,6 @@ chatInput.addEventListener("keydown", (event) => {
 	}
 });
 
-backBtn.addEventListener("click", () => {
-	body.classList.remove("chat-open");
-	boardInput.focus();
-});
-
 newTopicBtn.addEventListener("click", resetChat);
 
 async function sendMessage(messageOverride) {
@@ -76,14 +67,12 @@ async function sendMessage(messageOverride) {
 
 	openChatScreen();
 	setProcessingState(true);
-	clearLatestControls();
-	addMessageToChat("user", message);
+	await showQuestion(message);
 	chatHistory.push({ role: "user", content: message });
-	hasUserMessage = true;
 
 	boardInput.value = "";
 	chatInput.value = "";
-	showTyping(true);
+	showLoadingAnswer();
 
 	try {
 		const response = await fetch("/api/chat", {
@@ -102,7 +91,7 @@ async function sendMessage(messageOverride) {
 
 		const data = await response.json();
 		const travelResponse = normalizeTravelResponse(data);
-		renderAssistantResponse(travelResponse);
+		await renderAssistantResponse(travelResponse);
 		chatHistory.push({ role: "assistant", content: travelResponse.reply });
 	} catch (error) {
 		console.error("Error:", error);
@@ -112,41 +101,154 @@ async function sendMessage(messageOverride) {
 			intent: { hasDestinationIntent: false },
 			actions: [],
 		};
-		renderAssistantResponse(fallback, { notice: true });
+		await renderAssistantResponse(fallback, { notice: true });
 		chatHistory.push({ role: "assistant", content: fallback.reply });
 	} finally {
-		showTyping(false);
 		setProcessingState(false);
 		chatInput.focus();
 	}
 }
 
-function renderAssistantResponse(response, options = {}) {
+async function showQuestion(content) {
+	await clearCurrentPair();
+
+	const questionSlot = document.createElement("div");
+	questionSlot.className = "question-slot is-entering";
+
+	const messageEl = document.createElement("div");
+	messageEl.className = "bubble user";
+	messageEl.textContent = content;
+
+	questionSlot.appendChild(messageEl);
+	messages.appendChild(questionSlot);
+	activeQuestionSlot = questionSlot;
+	scrollToBottom();
+	finishEntering(questionSlot);
+}
+
+async function renderAssistantResponse(response, options = {}) {
+	revealGeneration += 1;
+	const generation = revealGeneration;
+
 	if (loadingSlot) {
 		loadingSlot.remove();
 		loadingSlot = null;
+		activeAnswerSlot = null;
 	}
 
-	const block = document.createElement("div");
-	block.className = "message-block assistant-block";
+	if (activeAnswerSlot) {
+		await transitionOut(activeAnswerSlot);
+		activeAnswerSlot = null;
+	}
 
 	const answerSlot = document.createElement("div");
-	answerSlot.className = "answer-slot is-answering";
+	answerSlot.className = options.immediate
+		? "answer-slot"
+		: "answer-slot is-entering is-answering";
 
 	const messageEl = document.createElement("div");
-	messageEl.className = `bubble bot${options.notice ? " notice" : ""}`;
-	messageEl.textContent = response.reply;
+	const variantClass = options.notice ? " notice" : "";
+	messageEl.className = `bubble bot answer-bubble${variantClass}`;
 	answerSlot.appendChild(messageEl);
+
+	messages.appendChild(answerSlot);
+	activeAnswerSlot = answerSlot;
+	scrollToBottom();
+	finishEntering(answerSlot);
+
+	await revealWords(messageEl, response.reply, { immediate: options.immediate, generation });
+
+	if (generation !== revealGeneration) return;
 
 	const actions = buildActionButtons(response);
 	if (actions) {
 		answerSlot.appendChild(actions);
+		scrollToBottom();
+	}
+}
+
+function showLoadingAnswer() {
+	loadingSlot = document.createElement("div");
+	loadingSlot.className = "answer-slot is-loading";
+	loadingSlot.innerHTML = `
+		<div class="loading-card">
+			<div class="dots"><span></span><span></span><span></span></div>
+			Planning your answer...
+		</div>
+	`;
+	messages.appendChild(loadingSlot);
+	activeAnswerSlot = loadingSlot;
+	scrollToBottom();
+}
+
+async function clearCurrentPair() {
+	revealGeneration += 1;
+	const exitingSlots = [activeQuestionSlot, activeAnswerSlot].filter(Boolean);
+	activeQuestionSlot = null;
+	activeAnswerSlot = null;
+	loadingSlot = null;
+
+	await Promise.all(exitingSlots.map((slot) => transitionOut(slot)));
+}
+
+function transitionOut(slot) {
+	if (!slot?.isConnected) return Promise.resolve();
+
+	if (prefersReducedMotion()) {
+		slot.remove();
+		return Promise.resolve();
 	}
 
-	block.appendChild(answerSlot);
-	messages.appendChild(block);
-	renderQuickFollowups(options.showPopularQuestions && !hasUserMessage);
-	scrollToBottom();
+	return new Promise((resolve) => {
+		slot.classList.remove("is-entering", "is-answering", "is-loading");
+		slot.classList.add("is-exiting");
+		window.setTimeout(() => {
+			slot.remove();
+			resolve();
+		}, 210);
+	});
+}
+
+async function revealWords(element, text, options = {}) {
+	if (options.immediate || prefersReducedMotion()) {
+		element.textContent = text;
+		return;
+	}
+
+	const words = text.match(/\S+\s*/g) ?? [text];
+	element.textContent = "";
+
+	for (const word of words) {
+		if (options.generation !== revealGeneration) return;
+		element.textContent += word;
+		scrollToBottom();
+		await delay(getWordDelay(word));
+	}
+}
+
+function getWordDelay(word) {
+	if (/[.!?]\s*$/.test(word)) return 42;
+	if (/[,;:]\s*$/.test(word)) return 30;
+	return 18;
+}
+
+function delay(milliseconds) {
+	return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function finishEntering(slot) {
+	if (prefersReducedMotion()) {
+		slot.classList.remove("is-entering", "is-answering", "is-loading");
+		return;
+	}
+
+	window.setTimeout(() => {
+		slot.classList.remove("is-entering");
+	}, 280);
+}
+
+function prefersReducedMotion() {
+	return reducedMotionQuery.matches;
 }
 
 function buildActionButtons(response) {
@@ -158,7 +260,7 @@ function buildActionButtons(response) {
 	if (!hasActions) return null;
 
 	const actionButtons = document.createElement("div");
-	actionButtons.className = "action-bubbles latest-controls";
+	actionButtons.className = "action-bubbles";
 	for (const action of response.actions) {
 		const button = document.createElement("button");
 		button.type = "button";
@@ -171,39 +273,8 @@ function buildActionButtons(response) {
 	return actionButtons;
 }
 
-function renderQuickFollowups(showPopularQuestions = false) {
-	quickFollowups.replaceChildren();
-	if (!showPopularQuestions) return;
-
-	const fragment = document.createDocumentFragment();
-	for (const question of popularQuestions) {
-		const button = document.createElement("button");
-		button.type = "button";
-		button.className = "popular-question-button latest-controls";
-		button.textContent = question;
-		button.addEventListener("click", () => sendMessage(question));
-		fragment.appendChild(button);
-	}
-	quickFollowups.appendChild(fragment);
-}
-
 function openBookingAction(url) {
 	window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function addMessageToChat(role, content) {
-	const block = document.createElement("div");
-	block.className = `message-block ${role}-block`;
-
-	const messageEl = document.createElement("div");
-	messageEl.className = `bubble ${role === "user" ? "user" : "bot"}`;
-	messageEl.textContent = content;
-
-	block.appendChild(messageEl);
-	messages.appendChild(block);
-	messages.classList.remove("is-ready");
-	requestAnimationFrame(() => messages.classList.add("is-ready"));
-	scrollToBottom();
 }
 
 function normalizeTravelResponse(data) {
@@ -222,16 +293,27 @@ function normalizeTravelResponse(data) {
 }
 
 function normalizeIntent(intent) {
-	const destination =
+	const rawDestination =
 		typeof intent?.destination === "string" && intent.destination.trim().length > 0
 			? intent.destination.trim()
 			: undefined;
+	const destination = rawDestination ? normalizeSingleDestination(rawDestination) : undefined;
 	const hasDestinationIntent = intent?.hasDestinationIntent === true && Boolean(destination);
 
 	return {
 		hasDestinationIntent,
 		...(destination ? { destination } : {}),
 	};
+}
+
+function normalizeSingleDestination(destination) {
+	const normalized = destination.replace(/\s+/g, " ").trim();
+	if (!normalized) return undefined;
+	if (/^(?:n\/a|none|null|undefined|unknown|empty|destination|this destination)$/i.test(normalized)) return undefined;
+	if (/[,;\n\r/]/.test(normalized)) return undefined;
+	if (/\s(?:or|and)\s/i.test(normalized)) return undefined;
+	if (/^\s*(?:\d+\.|[-*])\s/m.test(normalized)) return undefined;
+	return normalized;
 }
 
 function normalizeActions(actions) {
@@ -263,17 +345,6 @@ function isAllowedBookingUrl(url) {
 	}
 }
 
-function clearLatestControls() {
-	const controls = document.querySelectorAll(".latest-controls");
-	for (const control of controls) {
-		control.classList.remove("latest-controls");
-		const buttons = control.matches("button") ? [control] : control.querySelectorAll("button");
-		for (const button of buttons) {
-			button.disabled = true;
-		}
-	}
-}
-
 function setProcessingState(processing) {
 	isProcessing = processing;
 	boardInput.disabled = processing;
@@ -285,30 +356,10 @@ function setProcessingState(processing) {
 
 	const buttons = document.querySelectorAll("button");
 	for (const button of buttons) {
-		if (button === backBtn || button === newTopicBtn) continue;
+		if (button === newTopicBtn) continue;
 		if (button.closest("form")) continue;
-		button.disabled = processing || !button.closest(".latest-controls") && button.classList.contains("action-bubble");
-	}
-}
+		button.disabled = processing;
 
-function showTyping(visible) {
-	if (visible) {
-		loadingSlot = document.createElement("div");
-		loadingSlot.className = "answer-slot is-loading";
-		loadingSlot.innerHTML = `
-			<div class="loading-card">
-				<div class="dots"><span></span><span></span><span></span></div>
-				Planning your answer...
-			</div>
-		`;
-		messages.appendChild(loadingSlot);
-		scrollToBottom();
-		return;
-	}
-
-	if (loadingSlot) {
-		loadingSlot.remove();
-		loadingSlot = null;
 	}
 }
 
@@ -317,14 +368,18 @@ function openChatScreen() {
 }
 
 function resetChat() {
+	revealGeneration += 1;
 	chatHistory = [{ role: "assistant", content: welcomeResponse.reply }];
 	isProcessing = false;
-	hasUserMessage = false;
+	activeQuestionSlot = null;
+	activeAnswerSlot = null;
 	loadingSlot = null;
 	boardInput.value = "";
 	chatInput.value = "";
 	messages.replaceChildren();
-	renderAssistantResponse(welcomeResponse, { showPopularQuestions: true });
+	renderAssistantResponse(welcomeResponse, {
+		immediate: true,
+	});
 	setProcessingState(false);
 	chatInput.focus();
 }

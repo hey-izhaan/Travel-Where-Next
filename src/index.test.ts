@@ -151,6 +151,63 @@ describe("travel chat API", () => {
 		expect(body.actions).toEqual([]);
 	});
 
+
+	it("does not create booking actions for comma-separated destination lists", async () => {
+		const env = createEnv({
+			response: JSON.stringify({
+				reply: "For a first Europe trip, compare France, Italy, and Spain by budget and pace.",
+				intent: { hasDestinationIntent: true, destination: "France, Italy, Spain" },
+			}),
+		});
+
+		const response = await worker.fetch(
+			createRequest("Where should I go in Europe?"),
+			env,
+			{} as ExecutionContext,
+		);
+		const body = await parseResponse(response);
+
+		expect(body.intent).toEqual({ hasDestinationIntent: false });
+		expect(body.actions).toEqual([]);
+	});
+
+	it("does not create booking actions for destination choices joined by or", async () => {
+		const env = createEnv({
+			response: JSON.stringify({
+				reply: "Bali or Maldives could both work depending on your budget.",
+				intent: { hasDestinationIntent: true, destination: "Bali or Maldives" },
+			}),
+		});
+
+		const response = await worker.fetch(
+			createRequest("Should I choose Bali or Maldives?"),
+			env,
+			{} as ExecutionContext,
+		);
+		const body = await parseResponse(response);
+
+		expect(body.intent).toEqual({ hasDestinationIntent: false });
+		expect(body.actions).toEqual([]);
+	});
+
+	it("does not create booking actions for placeholder destinations", async () => {
+		const env = createEnv({
+			response: JSON.stringify({
+				reply: "Tell me the destination and I can help plan the trip.",
+				intent: { hasDestinationIntent: true, destination: "this destination" },
+			}),
+		});
+
+		const response = await worker.fetch(
+			createRequest("I want to travel"),
+			env,
+			{} as ExecutionContext,
+		);
+		const body = await parseResponse(response);
+
+		expect(body.intent).toEqual({ hasDestinationIntent: false });
+		expect(body.actions).toEqual([]);
+	});
 	it("falls back safely when the model does not return JSON", async () => {
 		const env = createEnv({ response: "I can help with travel planning." });
 
@@ -189,14 +246,30 @@ describe("travel chat API", () => {
 		const html = readFileSync("public/index.html", "utf8");
 
 		expect(html).toContain("Travel Helper");
-		expect(chatScript).toContain("popularQuestions");
-		expect(chatScript).toContain("Where should I go for a relaxing beach trip?");
+		expect(html).toContain("question-slot");
+		expect(html).toContain("answer-slot");
+		expect(html).toContain("answer-bubble");
+		expect(html).toContain("prefers-reduced-motion");
+		expect(chatScript).toContain("activeQuestionSlot");
+		expect(chatScript).toContain("activeAnswerSlot");
+		expect(chatScript).toContain("revealWords");
+		expect(chatScript).toContain("getWordDelay");
+		expect(chatScript).toContain("clearCurrentPair");
+		expect(chatScript).toContain("prefersReducedMotion");
 		expect(chatScript).toContain("book_flight");
 		expect(chatScript).toContain("book_hotel");
+		expect(chatScript).toContain("normalizeSingleDestination");
 		expect(chatScript).not.toContain("suggestion-chip");
 		expect(chatScript).not.toContain("You might ask");
 		expect(chatScript).not.toContain("travelState");
+		expect(html).not.toContain("backBtn");
+		expect(html).not.toContain("Back to questions");
+		expect(chatScript).not.toContain("backBtn");
+		expect(html).not.toContain("quickFollowups");		expect(chatScript).not.toContain("quickFollowups");
+		expect(chatScript).not.toContain("renderQuickFollowups");
+		expect(chatScript).not.toContain("popularQuestions");
 		expect(html).not.toContain("Cloudflare AI Chat");
 		expect(html).not.toContain("controls-label");
 	});
 });
+
