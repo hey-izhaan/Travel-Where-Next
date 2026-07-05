@@ -1,169 +1,569 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Where Next? Chatbot</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Where Next? Chatbot</title>
 
-		<style>
-			* { box-sizing: border-box; }
-			body {
-				margin: 0;
-				font-family: Inter, Arial, sans-serif;
-				background: #eefaf5;
-				color: #151515;
-				overflow-x: hidden;
-			}
-			button, input { font-family: inherit; }
-			button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-			.page {
-				min-height: 100vh;
-				padding: 38px;
-				display: grid;
-				grid-template-rows: 1fr;
-				gap: 28px;
-			}
-			.app-shell { position: relative; min-height: 680px; display: grid; place-items: center; }
-			.question-board {
-				width: 100%; min-height: 620px; background: white; border-radius: 44px;
-				padding: 48px; display: flex; flex-direction: column; justify-content: space-between;
-				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
-				transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
-			}
-			body.chat-open .question-board { opacity: 0; transform: translateY(-24px) scale(0.96); filter: blur(8px); pointer-events: none; }
-			.question-board h1 { margin: 0; font-size: clamp(54px, 9vw, 130px); line-height: 0.84; letter-spacing: -0.085em; max-width: 980px; }
-			.board-bottom { display: grid; grid-template-columns: 1fr minmax(320px, 520px); gap: 28px; align-items: end; margin-top: 54px; }
-			.suggestion-label { font-weight: 900; margin-bottom: 14px; }
-			.suggestions { display: flex; flex-wrap: wrap; gap: 12px; }
-			.suggestions button {
-				border: 0; background: #f2f2f2; border-radius: 999px; padding: 14px 18px;
-				font-weight: 800; cursor: pointer;
-				transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
-			}
-			.suggestions button:hover { transform: translateY(-2px); background: #111; color: #fff; }
-			.board-input, .chat-input { display: flex; gap: 10px; background: #f2f2f2; border-radius: 999px; padding: 10px; }
-			.board-input input, .chat-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 0 16px; font-size: 15px; font-weight: 700; }
-			.board-input button, .chat-input button { border: 0; background: #151515; color: #fff; border-radius: 999px; padding: 14px 20px; font-weight: 900; cursor: pointer; }
-			.assistant-screen {
-				position: absolute; inset: 0; display: grid; grid-template-columns: 0.82fr 1.18fr;
-				gap: 28px; opacity: 0; transform: translateY(28px) scale(0.98); pointer-events: none;
-				transition: opacity 0.45s ease 0.1s, transform 0.45s ease 0.1s;
-			}
-			body.chat-open .assistant-screen { opacity: 1; transform: none; pointer-events: auto; }
-			.assistant-side {
-				background: #151515; color: #fff; border-radius: 44px; padding: 34px;
-				display: flex; flex-direction: column; justify-content: space-between;
-				box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12); overflow: hidden; position: relative;
-			}
-			.assistant-side h2 { position: relative; z-index: 1; margin: 40px 0 0; font-size: clamp(42px, 5vw, 82px); line-height: 0.88; letter-spacing: -0.07em; }
-			.side-hint { position: relative; z-index: 1; margin-top: 22px; opacity: 0.62; line-height: 1.5; font-weight: 700; max-width: 390px; }
-			.chat-panel { background: #fff; border-radius: 44px; padding: 26px; display: flex; flex-direction: column; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08); min-height: 620px; }
-			.chat-top { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding-bottom: 20px; border-bottom: 1px solid rgba(0, 0, 0, 0.08); }
-			.chat-title { display: flex; align-items: center; gap: 12px; font-weight: 900; }
-			.chat-avatar { width: 42px; height: 42px; border-radius: 50%; background: #ff5edb; color: #fff; display: grid; place-items: center; }
-			.chat-status { font-size: 13px; opacity: 0.55; font-weight: 800; margin-top: 2px; }
-			.new-topic { border: 0; background: #f2f2f2; border-radius: 999px; padding: 12px 16px; font-weight: 900; cursor: pointer; }
-			.message-stage { flex: 1; display: grid; place-items: center; padding: 36px 0; min-height: 380px; overflow-y: auto; }
-			.message-set { width: min(680px, 100%); min-height: 320px; display: grid; align-content: center; gap: 18px; }
-			.question-slot { min-height: 56px; display: grid; justify-items: end; align-content: end; }
-			.answer-slot { min-height: 132px; justify-self: stretch; display: grid; justify-items: start; align-content: start; gap: 14px; }
-			.question-slot.is-entering, .answer-slot.is-entering { animation: slotEnter 0.24s ease-out both; }
-			.question-slot.is-exiting, .answer-slot.is-exiting { animation: slotExit 0.2s ease-in both; pointer-events: none; }
-			.answer-slot.is-loading { animation: slotEnter 0.22s ease-out both; }
-			.answer-slot.is-answering { animation: answerIn 0.28s ease both; }
-			.bubble { width: fit-content; max-width: 84%; padding: 16px 20px; border-radius: 24px; font-size: 17px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
-			.bubble.user { justify-self: end; background: #151515; color: #fff; border-bottom-right-radius: 6px; font-size: 16px; font-weight: 750; }
-			.bubble.bot { justify-self: start; background: #f4f5f1; color: #151515; border-bottom-left-radius: 6px; }
-			.bubble.answer-bubble { max-width: 92%; font-size: 21px; font-weight: 780; line-height: 1.52; }
-			.bubble.notice, .bubble.error { background: #fff4e8; border: 1px solid #ffd7ad; color: #3f2714; }
-			.loading-card { justify-self: start; background: #f2f2f2; border-radius: 24px; border-bottom-left-radius: 6px; padding: 16px 18px; display: flex; align-items: center; gap: 12px; font-weight: 800; color: rgba(21, 21, 21, 0.72); }
-			.dots { display: flex; gap: 4px; }
-			.dots span { width: 7px; height: 7px; border-radius: 50%; background: #151515; opacity: 0.35; animation: dotPulse 0.9s infinite ease-in-out; }
-			.dots span:nth-child(2) { animation-delay: 0.15s; }
-			.dots span:nth-child(3) { animation-delay: 0.3s; }
-			.action-bubbles { display: flex; flex-wrap: wrap; gap: 10px; justify-self: start; }
-			.action-bubble { border: 0; border-radius: 999px; background: #151515; color: #fff; padding: 12px 15px; text-align: center; text-decoration: none; font-size: 13px; font-weight: 900; cursor: pointer; line-height: 1.1; }
-			.action-bubble.hotel { background: #ff5edb; }
-			.action-bubble:hover, .action-bubble:focus-visible { transform: translateY(-1px); outline: 0; }
-			@keyframes slotEnter { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
-			@keyframes slotExit { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-18px) scale(0.98); } }
-			@keyframes answerIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-			@keyframes dotPulse { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 0.85; transform: translateY(-3px); } }
-			@media (max-width: 980px) {
-				.page { padding: 20px; }
-				.app-shell { min-height: 820px; }
-				.board-bottom { grid-template-columns: 1fr; }
-				.assistant-screen { grid-template-columns: 1fr; }
-				.assistant-side { min-height: 320px; }
-				.chat-panel { min-height: 540px; }
-			}
-			@media (max-width: 560px) {
-				.question-board, .assistant-side, .chat-panel { border-radius: 28px; padding: 24px; }
-				.board-input, .chat-input { border-radius: 24px; }
-				.bubble { max-width: 92%; }
-				.bubble.answer-bubble { font-size: 19px; }
-				.chat-top { align-items: flex-start; flex-direction: column; }
-			}
-			@media (prefers-reduced-motion: reduce) {
-				*, *::before, *::after {
-					animation-duration: 0.01ms !important;
-					animation-iteration-count: 1 !important;
-					scroll-behavior: auto !important;
-					transition-duration: 0.01ms !important;
-				}
-			}
-		</style>
-	</head>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Inter, Arial, sans-serif;
+        background: #eefaf5;
+        color: #151515;
+        overflow-x: hidden;
+      }
+      button,
+      input {
+        font-family: inherit;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .travel_wrap {
+        min-height: 100vh;
+        padding: 38px;
+        display: grid;
+        grid-template-rows: 1fr;
+        gap: 28px;
+      }
+      .travel_contain {
+        position: relative;
+        min-height: 680px;
+        display: grid;
+        place-items: center;
+      }
+      .travel_question_board {
+        width: 100%;
+        min-height: 620px;
+        background: white;
+        border-radius: 44px;
+        padding: 48px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+        transition:
+          opacity 0.45s ease,
+          transform 0.45s ease,
+          filter 0.45s ease;
+      }
+      .travel_wrap.is-active .travel_question_board {
+        opacity: 0;
+        transform: translateY(-24px) scale(0.96);
+        filter: blur(8px);
+        pointer-events: none;
+      }
+      .travel_question_board h1 {
+        margin: 0;
+        font-size: clamp(54px, 9vw, 130px);
+        line-height: 0.84;
+        letter-spacing: -0.085em;
+        max-width: 980px;
+      }
+      .travel_board_bottom {
+        display: grid;
+        grid-template-columns: 1fr minmax(320px, 520px);
+        gap: 28px;
+        align-items: end;
+        margin-top: 54px;
+      }
+      .travel_suggestion_label {
+        font-weight: 900;
+        margin-bottom: 14px;
+      }
+      .travel_suggestion_list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .travel_suggestion_list button {
+        border: 0;
+        background: #f2f2f2;
+        border-radius: 999px;
+        padding: 14px 18px;
+        font-weight: 800;
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease,
+          color 0.2s ease;
+      }
+      .travel_suggestion_list button:hover {
+        transform: translateY(-2px);
+        background: #111;
+        color: #fff;
+      }
+      .travel_form_wrap.is-board,
+      .travel_form_wrap.is-chat {
+        display: flex;
+        gap: 10px;
+        background: #f2f2f2;
+        border-radius: 999px;
+        padding: 10px;
+      }
+      .travel_input,
+      .travel_input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        padding: 0 16px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .travel_form_wrap.is-board button,
+      .travel_form_wrap.is-chat button {
+        border: 0;
+        background: #151515;
+        color: #fff;
+        border-radius: 999px;
+        padding: 14px 20px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .travel_assistant_screen {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 0.82fr 1.18fr;
+        gap: 28px;
+        opacity: 0;
+        transform: translateY(28px) scale(0.98);
+        pointer-events: none;
+        transition:
+          opacity 0.45s ease 0.1s,
+          transform 0.45s ease 0.1s;
+      }
+      .travel_wrap.is-active .travel_assistant_screen {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+      .travel_assistant_side {
+        background: #151515;
+        color: #fff;
+        border-radius: 44px;
+        padding: 34px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+        position: relative;
+      }
+      .travel_assistant_side h2 {
+        position: relative;
+        z-index: 1;
+        margin: 40px 0 0;
+        font-size: clamp(42px, 5vw, 82px);
+        line-height: 0.88;
+        letter-spacing: -0.07em;
+      }
+      .travel_side_hint {
+        position: relative;
+        z-index: 1;
+        margin-top: 22px;
+        opacity: 0.62;
+        line-height: 1.5;
+        font-weight: 700;
+        max-width: 390px;
+      }
+      .travel_chat_panel {
+        background: #fff;
+        border-radius: 44px;
+        padding: 26px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+        min-height: 620px;
+      }
+      .travel_chat_top {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .travel_chat_title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 900;
+      }
+      .travel_chat_avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #ff5edb;
+        color: #fff;
+        display: grid;
+        place-items: center;
+      }
+      .travel_status_text {
+        font-size: 13px;
+        opacity: 0.55;
+        font-weight: 800;
+        margin-top: 2px;
+      }
+      .travel_topic_button {
+        border: 0;
+        background: #f2f2f2;
+        border-radius: 999px;
+        padding: 12px 16px;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .travel_message_stage_wrap {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        padding: 36px 0;
+        min-height: 380px;
+        overflow-y: auto;
+      }
+      .travel_message_set_wrap {
+        width: min(680px, 100%);
+        min-height: 320px;
+        display: grid;
+        align-content: center;
+        gap: 18px;
+      }
+      .travel_question_wrap {
+        min-height: 56px;
+        display: grid;
+        justify-items: end;
+        align-content: end;
+      }
+      .travel_answer_wrap {
+        min-height: 132px;
+        justify-self: stretch;
+        display: grid;
+        justify-items: start;
+        align-content: start;
+        gap: 14px;
+      }
+      .travel_question_wrap.is-entering,
+      .travel_answer_wrap.is-entering {
+        animation: slotEnter 0.24s ease-out both;
+      }
+      .travel_question_wrap.is-exiting,
+      .travel_answer_wrap.is-exiting {
+        animation: slotExit 0.2s ease-in both;
+        pointer-events: none;
+      }
+      .travel_answer_wrap.is-loading {
+        animation: slotEnter 0.22s ease-out both;
+      }
+      .travel_answer_wrap.is-answering {
+        animation: answerIn 0.28s ease both;
+      }
+      .travel_hidden {
+        display: none;
+      }
+      .travel_message {
+        width: fit-content;
+        max-width: 84%;
+        padding: 16px 20px;
+        border-radius: 24px;
+        font-size: 17px;
+        line-height: 1.45;
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+      }
+      .travel_message.is-user {
+        justify-self: end;
+        background: #151515;
+        color: #fff;
+        border-bottom-right-radius: 6px;
+        font-size: 16px;
+        font-weight: 750;
+      }
+      .travel_message.is-bot {
+        justify-self: start;
+        background: #f4f5f1;
+        color: #151515;
+        border-bottom-left-radius: 6px;
+      }
+      .travel_message.is-answer {
+        max-width: 92%;
+        font-size: 21px;
+        font-weight: 780;
+        line-height: 1.52;
+      }
+      .travel_message.is-notice,
+      .travel_message.is-error {
+        background: #fff4e8;
+        border: 1px solid #ffd7ad;
+        color: #3f2714;
+      }
+      .travel_loading_wrap {
+        justify-self: start;
+        background: #f2f2f2;
+        border-radius: 24px;
+        border-bottom-left-radius: 6px;
+        padding: 16px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        color: rgba(21, 21, 21, 0.72);
+      }
+      .dots {
+        display: flex;
+        gap: 4px;
+      }
+      .dots span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #151515;
+        opacity: 0.35;
+        animation: dotPulse 0.9s infinite ease-in-out;
+      }
+      .dots span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .dots span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      .travel_action_list_wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-self: start;
+      }
+      .travel_action_button {
+        border: 0;
+        border-radius: 999px;
+        background: #151515;
+        color: #fff;
+        padding: 12px 15px;
+        text-align: center;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 900;
+        cursor: pointer;
+        line-height: 1.1;
+      }
+      .travel_action_button.is-hotel {
+        background: #ff5edb;
+      }
+      .travel_action_button:hover,
+      .travel_action_button:focus-visible {
+        transform: translateY(-1px);
+        outline: 0;
+      }
+      @keyframes slotEnter {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes slotExit {
+        from {
+          opacity: 1;
+          transform: none;
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-18px) scale(0.98);
+        }
+      }
+      @keyframes answerIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes dotPulse {
+        0%,
+        100% {
+          opacity: 0.25;
+          transform: translateY(0);
+        }
+        50% {
+          opacity: 0.85;
+          transform: translateY(-3px);
+        }
+      }
+      @media (max-width: 980px) {
+        .travel_wrap {
+          padding: 20px;
+        }
+        .travel_contain {
+          min-height: 820px;
+        }
+        .travel_board_bottom {
+          grid-template-columns: 1fr;
+        }
+        .travel_assistant_screen {
+          grid-template-columns: 1fr;
+        }
+        .travel_assistant_side {
+          min-height: 320px;
+        }
+        .travel_chat_panel {
+          min-height: 540px;
+        }
+      }
+      @media (max-width: 560px) {
+        .travel_question_board,
+        .travel_assistant_side,
+        .travel_chat_panel {
+          border-radius: 28px;
+          padding: 24px;
+        }
+        .travel_form_wrap.is-board,
+        .travel_form_wrap.is-chat {
+          border-radius: 24px;
+        }
+        .travel_message {
+          max-width: 92%;
+        }
+        .travel_message.is-answer {
+          font-size: 19px;
+        }
+        .travel_chat_top {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
 
-	<body>
-		<main class="page">
-			<div class="app-shell">
-				<section class="question-board" id="questionBoard">
-					<div><h1>Ask one question. Get your next destination.</h1></div>
-					<div class="board-bottom">
-						<div>
-							<div class="suggestion-label">I want to</div>
-							<div class="suggestions" id="boardSuggestions">
-								<button data-question="I want to find a warm beach trip" type="button">find a warm beach trip</button>
-								<button data-question="I want to plan a budget-friendly week" type="button">plan a budget-friendly week</button>
-								<button data-question="I want to go somewhere peaceful" type="button">go somewhere peaceful</button>
-								<button data-question="I want to pick a food-focused city" type="button">pick a food-focused city</button>
-								<button data-question="I want to compare a few destinations" type="button">compare a few destinations</button>
-							</div>
-						</div>
-						<form class="board-input" id="boardForm">
-							<input id="boardInput" type="text" placeholder="Ask: I want a warm beach trip..." />
-							<button type="submit">Ask</button>
-						</form>
-					</div>
-				</section>
+  <body>
+    <main class="travel_wrap">
+      <div class="travel_contain">
+        <section class="travel_question_board">
+          <div><h1>Ask one question. Get your next destination.</h1></div>
+          <div class="travel_board_bottom">
+            <div>
+              <div class="travel_suggestion_label">I want to</div>
+              <div class="travel_suggestion_list">
+                <button
+                  data-question="I want to find a warm beach trip"
+                  type="button"
+                >
+                  find a warm beach trip
+                </button>
+                <button
+                  data-question="I want to plan a budget-friendly week"
+                  type="button"
+                >
+                  plan a budget-friendly week
+                </button>
+                <button
+                  data-question="I want to go somewhere peaceful"
+                  type="button"
+                >
+                  go somewhere peaceful
+                </button>
+                <button
+                  data-question="I want to pick a food-focused city"
+                  type="button"
+                >
+                  pick a food-focused city
+                </button>
+                <button
+                  data-question="I want to compare a few destinations"
+                  type="button"
+                >
+                  compare a few destinations
+                </button>
+              </div>
+            </div>
+            <form class="travel_form_wrap is-board">
+              <input
+                class="travel_input is-board"
+                type="text"
+                placeholder="Ask: I want a warm beach trip..."
+              />
+              <button type="submit">Ask</button>
+            </form>
+          </div>
+        </section>
 
-				<section class="assistant-screen" id="assistantScreen">
-					<aside class="assistant-side">
-						<div>
-							<h2>Let's match your travel vibe.</h2>
-							<p class="side-hint">I only answer travel destination questions: budget, weather, beaches, food, family trips, remote work, peaceful escapes, and trip length.</p>
-						</div>
-					</aside>
+        <section class="travel_assistant_screen">
+          <aside class="travel_assistant_side">
+            <div>
+              <h2>Let's match your travel vibe.</h2>
+              <p class="travel_side_hint">
+                I only answer travel destination questions: budget, weather,
+                beaches, food, family trips, remote work, peaceful escapes, and
+                trip length.
+              </p>
+            </div>
+          </aside>
 
-					<section class="chat-panel" aria-label="Travel Helper chat">
-						<div class="chat-top">
-							<div class="chat-title">
-								<div class="chat-avatar">AI</div>
-								<div>Travel Matcher<div class="chat-status" id="chatStatus">Ready</div></div>
-							</div>
-							<button class="new-topic" id="newTopicBtn" type="button">New topic</button>
-						</div>
-						<div class="message-stage" id="messageStage"><div class="message-set" id="messages"></div></div>
-						<form class="chat-input" id="chatForm">
-							<input id="chatInput" type="text" placeholder="Ask a follow-up..." />
-							<button id="send-button" type="submit">Ask</button>
-						</form>
-					</section>
-				</section>
-			</div>
-		</main>
+          <section class="travel_chat_panel" aria-label="Travel Helper chat">
+            <div class="travel_chat_top">
+              <div class="travel_chat_title">
+                <div class="travel_chat_avatar">AI</div>
+                <div>
+                  Travel Matcher
+                  <div class="travel_status_text">Ready</div>
+                </div>
+              </div>
+              <button class="travel_topic_button" type="button">
+                New topic
+              </button>
+            </div>
+            <div class="travel_message_stage_wrap">
+              <div class="travel_message_set_wrap"></div>
+            </div>
+            <form class="travel_form_wrap is-chat">
+              <input
+                class="travel_input is-chat"
+                type="text"
+                placeholder="Ask a follow-up..."
+              />
+              <button class="travel_submit_button is-chat" type="submit">Ask</button>
+            </form>
+          </section>
+        </section>
+        <div class="travel_hidden" aria-hidden="true">
+          <div class="travel_question_wrap">
+            <div class="travel_message is-user"></div>
+          </div>
+          <div class="travel_answer_wrap">
+            <div class="travel_message is-bot is-answer"></div>
+          </div>
+          <div class="travel_loading_wrap">
+            <div class="dots"><span></span><span></span><span></span></div>
+            Planning your answer...
+          </div>
+          <div class="travel_action_list_wrap"></div>
+          <button class="travel_action_button" type="button"></button>
+        </div>
+      </div>
+    </main>
 
-		<script src="chat.js"></script>
-	</body>
+    <script src="chat.js"></script>
+  </body>
 </html>

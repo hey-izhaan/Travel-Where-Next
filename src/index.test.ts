@@ -14,10 +14,13 @@ function createEnv(modelResponse: unknown): Env {
 	};
 }
 
-function createRequest(message: string): Request {
+function createRequest(message: string, origin?: string): Request {
 	return new Request("https://travel-helper.test/api/chat", {
 		method: "POST",
-		headers: { "content-type": "application/json" },
+		headers: {
+			"content-type": "application/json",
+			...(origin ? { origin } : {}),
+		},
 		body: JSON.stringify({
 			messages: [{ role: "user", content: message }],
 		}),
@@ -226,6 +229,60 @@ describe("travel chat API", () => {
 		expect(body).not.toHaveProperty("state");
 	});
 
+
+	it("allows Webflow preflight requests for the chat API", async () => {
+		const env = createEnv({ response: "" });
+		const response = await worker.fetch(
+			new Request("https://travel-helper.test/api/chat", {
+				method: "OPTIONS",
+				headers: {
+					origin: "https://where-next-dev.webflow.io",
+					"access-control-request-method": "POST",
+					"access-control-request-headers": "content-type",
+				},
+			}),
+			env,
+			{} as ExecutionContext,
+		);
+
+		expect(response.status).toBe(204);
+		expect(response.headers.get("access-control-allow-origin")).toBe("https://where-next-dev.webflow.io");
+		expect(response.headers.get("access-control-allow-methods")).toContain("POST");
+		expect(response.headers.get("access-control-allow-headers")).toContain("content-type");
+	});
+
+	it("adds CORS headers to Webflow POST responses", async () => {
+		const env = createEnv({
+			response: JSON.stringify({
+				reply: "I can help compare beach destinations by season, budget, and travel time.",
+				intent: { hasDestinationIntent: false, destination: "" },
+			}),
+		});
+
+		const response = await worker.fetch(
+			createRequest("Find a beach trip", "https://where-next-dev.webflow.io"),
+			env,
+			{} as ExecutionContext,
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("access-control-allow-origin")).toBe("https://where-next-dev.webflow.io");
+	});
+
+	it("rejects preflight requests from unapproved origins", async () => {
+		const env = createEnv({ response: "" });
+		const response = await worker.fetch(
+			new Request("https://travel-helper.test/api/chat", {
+				method: "OPTIONS",
+				headers: { origin: "https://example.com" },
+			}),
+			env,
+			{} as ExecutionContext,
+		);
+
+		expect(response.status).toBe(403);
+		expect(response.headers.get("access-control-allow-origin")).toBeNull();
+	});
 	it("keeps the Worker free of classifier, state, suggestion, and destination-list logic", () => {
 		const workerSource = readFileSync("src/index.ts", "utf8");
 
@@ -246,10 +303,10 @@ describe("travel chat API", () => {
 		const html = readFileSync("public/index.html", "utf8");
 
 		expect(html).toContain("Travel Helper");
-		expect(html).toContain("question-slot");
-		expect(html).toContain("answer-slot");
-		expect(html).toContain("answer-bubble");
-		expect(html).toContain("prefers-reduced-motion");
+		expect(html).toContain("travel_question_wrap");
+		expect(html).toContain("travel_answer_wrap");
+		expect(html).toContain("travel_message is-bot is-answer");
+		expect(chatScript).toContain("prefers-reduced-motion");
 		expect(chatScript).toContain("activeQuestionSlot");
 		expect(chatScript).toContain("activeAnswerSlot");
 		expect(chatScript).toContain("revealWords");
@@ -259,6 +316,7 @@ describe("travel chat API", () => {
 		expect(chatScript).toContain("book_flight");
 		expect(chatScript).toContain("book_hotel");
 		expect(chatScript).toContain("normalizeSingleDestination");
+		expect(chatScript).toContain("TRAVEL_HELPER_API_URL");
 		expect(chatScript).not.toContain("suggestion-chip");
 		expect(chatScript).not.toContain("You might ask");
 		expect(chatScript).not.toContain("travelState");
@@ -272,4 +330,3 @@ describe("travel chat API", () => {
 		expect(html).not.toContain("controls-label");
 	});
 });
-

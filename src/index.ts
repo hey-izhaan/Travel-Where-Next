@@ -15,6 +15,7 @@ import {
 } from "./types";
 
 const MODEL_ID = "@cf/meta/llama-3.1-8b-instruct-fp8";
+const ALLOWED_CORS_ORIGINS = new Set(["https://where-next-dev.webflow.io"]);
 
 const SYSTEM_PROMPT = `You are Travel Helper.
 Answer travel questions clearly and practically.
@@ -36,15 +37,19 @@ export default {
 			return env.ASSETS.fetch(request);
 		}
 
+		if (request.method === "OPTIONS") {
+			return handleOptionsRequest(request);
+		}
+
 		if (url.pathname === "/api/chat") {
 			if (request.method === "POST") {
 				return handleChatRequest(request, env);
 			}
 
-			return jsonResponse({ error: "Method not allowed" }, 405);
+			return jsonResponse({ error: "Method not allowed" }, 405, request);
 		}
 
-		return jsonResponse({ error: "Not found" }, 404);
+		return jsonResponse({ error: "Not found" }, 404, request);
 	},
 } satisfies ExportedHandler<Env>;
 
@@ -57,7 +62,7 @@ async function handleChatRequest(
 		const messages = normalizeMessages(body.messages);
 
 		if (messages.length === 0) {
-			return jsonResponse(createFallbackResponse());
+			return jsonResponse(createFallbackResponse(), 200, request);
 		}
 
 		const modelMessages: ChatMessage[] = [
@@ -79,10 +84,10 @@ async function handleChatRequest(
 					rawLength: rawText.length,
 				}),
 			);
-			return jsonResponse(createFallbackResponse());
+			return jsonResponse(createFallbackResponse(), 200, request);
 		}
 
-		return jsonResponse(validateTravelResponse(parsed));
+		return jsonResponse(validateTravelResponse(parsed), 200, request);
 	} catch (error) {
 		console.error(
 			JSON.stringify({
@@ -94,6 +99,7 @@ async function handleChatRequest(
 		return jsonResponse(
 			{ error: "Failed to process travel chat request" },
 			500,
+			request,
 		);
 	}
 }
@@ -244,13 +250,38 @@ function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function handleOptionsRequest(request: Request): Response {
+	const headers = getCorsHeaders(request);
+	if (!headers) {
+		return new Response(null, { status: 403 });
+	}
+
+	return new Response(null, {
+		status: 204,
+		headers,
+	});
+}
+
+function getCorsHeaders(request: Request): HeadersInit | undefined {
+	const origin = request.headers.get("origin");
+	if (!origin || !ALLOWED_CORS_ORIGINS.has(origin)) return undefined;
+
+	return {
+		"access-control-allow-origin": origin,
+		"access-control-allow-methods": "POST, OPTIONS",
+		"access-control-allow-headers": "content-type",
+		"access-control-max-age": "86400",
+		vary: "Origin",
+	};
+}
+
+function jsonResponse(body: unknown, status = 200, request?: Request): Response {
 	return new Response(JSON.stringify(body), {
 		status,
 		headers: {
 			"content-type": "application/json; charset=utf-8",
 			"cache-control": "no-cache",
+			...(request ? getCorsHeaders(request) : {}),
 		},
 	});
 }
-
